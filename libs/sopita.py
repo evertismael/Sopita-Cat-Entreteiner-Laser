@@ -16,11 +16,35 @@ def create_folder_number(path:str='./calibration/'):
     return path +'/'+ str(current_trial)
 
 
-def collect_calibration_dataset(cal_path, servo, cam):
-    sr_moves = [-0.2, 0, 0.2]
+def collect_calibration_dataset(off_moves, cal_path, servo1, servo2, cam):
+    ref_val1 = servo1.value
+    ref_val2 = servo2.value
+    
+    for idx, mv in enumerate(off_moves):
+        # move servo
+        servo1.value = ref_val1 + mv[0]
+        servo2.value = ref_val2 + mv[1]
+
+        print(f'move{idx}: s1: {mv[0]} , s2: {mv[1]}')
+        for i in range(10):
+            # read camera frame:  
+            valid, frame = cam.read()
+            if not valid:
+                print('invalid frame')
+                continue
+            print(f'shooting in {10-i}',end='\n')
+            cv2.imshow('Calibration',frame)
+            cv2.waitKey(1)
+        print('')
+        #save 
+        filename = cal_path+'/'+str(idx)+'.png'
+        cv2.imwrite(filename, frame)
+
+
+def collect_calibration_dataset_single(off_moves, cal_path, servo, cam):
     ref_val = servo.value
     
-    for idx, mv in enumerate(sr_moves):
+    for idx, mv in enumerate(off_moves):
         # move servo
         servo.value = ref_val + mv
         print(f'move{idx}')
@@ -37,7 +61,3 @@ def collect_calibration_dataset(cal_path, servo, cam):
         #save 
         filename = cal_path+'/'+str(idx)+'.png'
         cv2.imwrite(filename, frame)
-
-
-    
-
