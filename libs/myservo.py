@@ -1,23 +1,26 @@
 from gpiozero import Servo
 
-MAX_VALUE = 1
-MIN_VALUE = -1
+MAX_VALUE = 1.0
+MIN_VALUE = -1.0
+
+def sanitate_max_values(value):
+    return max([min([value, MAX_VALUE]), MIN_VALUE])
+
 
 def manual_left_right(ch:str, servo:Servo, step:float):
-
     if ch==81: # use left arrrow
-        servo.value = min([servo.value + step, MAX_VALUE])
+        servo.value = sanitate_max_values(servo.value + step)
         print('left')
     elif ch==83: # use right arrow
-        servo.value = max([servo.value - step, MIN_VALUE])
+        servo.value = sanitate_max_values(servo.value - step)
         print('right')
     return
 
 def manual_up_down(ch:str, servo:Servo, step:float):
     if ch==82: # use up arrrow
-        servo.value = min([servo.value + step, MAX_VALUE])
+        servo.value = sanitate_max_values(servo.value + step)
         print('up')
     elif ch==84: # use down arrow
-        servo.value = max([servo.value - step, MIN_VALUE])
+        servo.value = sanitate_max_values(servo.value - step)
         print('down')
     return
