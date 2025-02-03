@@ -4,6 +4,7 @@ import cv2, time, random, math
 import libs.sopita as sopita
 from libs import myservo as ms
 import itertools
+import numpy as np
 
 """ This scripts alows to move the laser left-right-up-down so that the beam
     can be located in the center of the image.
@@ -13,6 +14,8 @@ import itertools
 
 # init camera:
 cam = cv2.VideoCapture(0)
+cam.set(cv2.CAP_PROP_BUFFERSIZE,1)
+a=cam.get(cv2.CAP_PROP_BUFFERSIZE) 
 
 # init servo:
 factory = PiGPIOFactory()
@@ -35,21 +38,26 @@ while True:
     print(f'servo1, servo2 values:{servo1.value:.2f}  , {servo2.value:.2f}')
     
     # get key to move up down or sides:
-    ms.manual_left_right(inkey,servo1,.05)
-    ms.manual_up_down(inkey,servo2,.05)
+    ms.manual_left_right(inkey,servo1,.01)
+    ms.manual_up_down(inkey,servo2,.01)
 
     if inkey==ord('q'):
         break
 
-
+"""
+print(servo1.value, servo2.value)
+servo1.value=-0.1
+servo2.value=-0.1
+"""
 
 cal_flg = 'yes'# input('Obtain Calibration [no]: yes/no')
 while 'yes' in cal_flg:
     cal_path = sopita.create_folder_number()
 
-    off_moves = itertools.product(list(range(-5,5)),list(range(-5,5)))
-    off_moves = [(a/100.0, b/100.0) for (a,b) in list(off_moves)] 
-
+    # define calibration path:
+    off_moves = sopita.get_calibration_path_serpent(min_val=-10, max_val=10,step=3)
+    print(f'taking {len(off_moves)} calibration moves', off_moves)
+    off_moves = [(a/60.0, b/60.0) for (a,b) in list(off_moves)] 
     sopita.collect_calibration_dataset(off_moves, cal_path, servo1, servo2, cam)
 
     # ask again: 
