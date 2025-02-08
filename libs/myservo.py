@@ -1,5 +1,7 @@
 from gpiozero import Servo
 
+VAL2ANGLE = 90./1.0
+ANGLE2VAL = 1.0/90.0
 MAX_VALUE = 1.0
 MIN_VALUE = -1.0
 

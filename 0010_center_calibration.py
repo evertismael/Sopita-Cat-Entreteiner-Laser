@@ -35,11 +35,11 @@ while True:
     cv2.imshow('Calibration',frame)
 
     inkey = cv2.waitKey(1)
-    print(f'servo1, servo2 values:{servo1.value:.2f}  , {servo2.value:.2f}')
+    print(f'servo1, servo2 values:{servo1.value:.2f}  , {servo2.value:.2f}, angles:{ms.VAL2ANGLE*servo1.value:.2f}  , {ms.VAL2ANGLE*servo2.value:.2f}')
     
     # get key to move up down or sides:
-    ms.manual_left_right(inkey,servo1,.01)
-    ms.manual_up_down(inkey,servo2,.01)
+    ms.manual_left_right(inkey,servo1, step=ms.ANGLE2VAL)
+    ms.manual_up_down(inkey,servo2, step=ms.ANGLE2VAL)
 
     if inkey==ord('q'):
         break
@@ -55,10 +55,9 @@ while 'yes' in cal_flg:
     cal_path = sopita.create_folder_number()
 
     # define calibration path:
-    off_moves = sopita.get_calibration_path_serpent(min_val=-10, max_val=10,step=3)
-    print(f'taking {len(off_moves)} calibration moves', off_moves)
-    off_moves = [(a/60.0, b/60.0) for (a,b) in list(off_moves)] 
-    sopita.collect_calibration_dataset(off_moves, cal_path, servo1, servo2, cam)
+    off_moves_ang = sopita.get_calibration_path_serpent(min_angle=-10, max_angle=10,step=3)
+    print(f'taking {len(off_moves_ang)} calibration moves', off_moves_ang)
+    sopita.collect_calibration_dataset(off_moves_ang, cal_path, servo1, servo2, cam)
 
     # ask again: 
     cal_flg = input('Obtain Calibration AGAIN [no]: yes/no')

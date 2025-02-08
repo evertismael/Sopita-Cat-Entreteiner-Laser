@@ -1,17 +1,17 @@
 import os
 import time
 import cv2
-from libs.myservo import sanitate_max_values
+from libs.myservo import sanitate_max_values, ANGLE2VAL, VAL2ANGLE
 
-def get_calibration_path_serpent(min_val:-5, max_val:5,step=1):
-    assert(abs(min_val)>=step,'step too big')
-    assert(abs(max_val)>=step,'step too big')
-    assert(min_val<max_val,'min max values are wrong')
+def get_calibration_path_serpent(min_angle:-5, max_angle:5,step=1):
+    assert(abs(min_angle)>=step,'step too big')
+    assert(abs(max_angle)>=step,'step too big')
+    assert(min_angle<max_angle,'min max values are wrong')
 
-    side_grid = range(min_val, max_val,step)
-    tmp = list(side_grid).copy()
+    angle_grid = range(min_angle, max_angle,step)
+    tmp = list(angle_grid).copy()
     mvs = []
-    for i,v in enumerate(side_grid):
+    for i,v in enumerate(angle_grid):
         tmp = tmp[::-1] 
         new_mvs = [(a,v) for a in tmp]
         mvs +=new_mvs
@@ -31,16 +31,18 @@ def create_folder_number(path:str='./calibration/'):
     return path +'/'+ str(current_trial)
 
 
-def collect_calibration_dataset(off_moves, cal_path, servo1, servo2, cam):
-    ref_val1 = servo1.value
-    ref_val2 = servo2.value
+def collect_calibration_dataset(off_moves_ang, cal_path, servo1, servo2, cam):
+    ref_ang1 = servo1.value*VAL2ANGLE
+    ref_ang2 = servo2.value*VAL2ANGLE
     
-    for idx, mv in enumerate(off_moves):
+    for idx, mv_ang_off in enumerate(off_moves_ang):
+        mv_ang = (ref_ang1 + mv_ang_off[0], ref_ang2 + mv_ang_off[1])
+        mv_val = (ANGLE2VAL*mv_ang[0], ANGLE2VAL*mv_ang[1])
         # move servo
-        servo1.value = sanitate_max_values(ref_val1 + mv[0])
-        servo2.value = sanitate_max_values(ref_val2 + mv[1])
-        print(f'Collecting {idx} of {len(off_moves)}')
-        print(f'move{idx}: s1: {mv[0]} , s2: {mv[1]}')
+        servo1.value = sanitate_max_values(mv_val[0])
+        servo2.value = sanitate_max_values(mv_val[1])
+        print(f'Collecting {idx} of {len(off_moves_ang)}')
+        print(f'move{idx} angles: s1: {mv_ang[0]:.2f} , s2: {mv_ang[1]:.2f}; values: s1: {mv_val[0]:.2f} , s2: {mv_val[1]:.2f}')
         print(f'getting ready to shoot')
 
 
@@ -60,7 +62,7 @@ def collect_calibration_dataset(off_moves, cal_path, servo1, servo2, cam):
         # save file 
         filename = cal_path+'/servos.txt'
         with open(filename, "a") as f:
-            tof = f'{ref_val1}\t{ref_val2}\t{servo1.value:.3f}\t{servo2.value:.3f}\t{idx:d}\n'
+            tof = f'{idx:d}\t{ref_ang1:.3f}\t{ref_ang2:.3f}\t{mv_val[0]:.3f}\t{mv_val[1]:.3f}\t{mv_ang[0]:.3f}\t{mv_ang[1]:.3f}\n'
             f.write(tof)
         print('-----')
         for ii in range(1):
