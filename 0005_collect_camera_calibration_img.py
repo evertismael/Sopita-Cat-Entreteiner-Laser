@@ -10,7 +10,7 @@ cal_imgs_path = './cal_imgs/'
 
 idx = 0
 while True:
-    ret, frame = cv2.imread()
+    ret, frame = cam.read()
     cv2.imshow('cam',frame)
 
     pressed_key = cv2.waitKey(1)
