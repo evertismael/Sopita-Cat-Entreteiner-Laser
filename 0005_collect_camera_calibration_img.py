@@ -6,7 +6,7 @@ cam.set(cv2.CAP_PROP_BUFFERSIZE,1)
 a=cam.get(cv2.CAP_PROP_BUFFERSIZE) 
 
 
-cal_imgs_path = './cal_imgs/'
+cal_imgs_path = './cal_imgs'
 
 idx = 0
 while True:
@@ -22,6 +22,7 @@ while True:
         cv2.imwrite(filename, frame)
         print(f'image {filename} save')
         time.sleep(1)
+        idx+=1
 
 cam.release()
 cv2.destroyAllWindows()
