@@ -48,8 +48,10 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
         frame = cv2.imread(img_file)
         if scale_down:
             frame = cv2.resize(frame,(640,480))
-        frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
-        
+        #frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
+        frame_hsv = cv2.cvtColor(frame,cv2.COLOR_RGB2HSV)
+        cv2.imshow('',frame_hsv[:,:,2])
+        cv2.waitKey(0)
         '''
         alpha = 1.2 # Contrast control (1.0-3.0)
         beta = 0 # Brightness control (0-100)

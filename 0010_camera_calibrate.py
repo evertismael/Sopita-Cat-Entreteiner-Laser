@@ -10,7 +10,7 @@ chess_img_files = glob.glob(img_folder+'*.png')
 #        as well as the ones in chess coords.
 ptrn_size = ((11,7))
 scale_down = False
-P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
+ret, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
 
 # Step2: Compute the calibration, and return the matrices: (img_size(is reverted))
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(P_chs_list,P_pxl_list,img_size[::-1],None,None)
