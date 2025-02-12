@@ -1,124 +1,16 @@
 import cv2, glob
 import libs.cam_calib_utils as ccu
+import libs.laser_calib_utils as lcu
+import libs.chess_utils as chu
 import numpy as np
 import time
-import imutils
-from scipy.linalg import null_space
+
 
 # load servos file:
 folder_path = './cal_laser/cal_laser_second_try/'
 srv_file = folder_path + 'servos.txt'
 with open(srv_file) as f:
     srvs_data = f.read()
-
-
-def ind2sub(ptrn_size, sqr_idx):
-    N,_ = ptrn_size
-    u = int(sqr_idx/(N-1))
-    v = int(sqr_idx%(N-1))
-    return u,v
-def corner_indexes(ptrn_size, sqr_idx):
-    '''
-    Return the indexes of the points that are the corners of the square with index sqr_idx.
-    The returned indexes idxs are in the clockwise direction.
-    Example:
-            for sqr_idx=0 (first index), idxs=[0,1,9,8] for a ptrn_size = (8,4)
-    '''
-    N,_ = ptrn_size
-    u,v = ind2sub(ptrn_size, sqr_idx)
-    
-    idxs = []
-    idxs.append(sqr_idx+u     )
-    idxs.append(sqr_idx+u   +1)
-    idxs.append(sqr_idx+u+N +1)
-    idxs.append(sqr_idx+u+N   )
-    return idxs
-def get_black_sqr_idxs(ptrn_size,first_black_idx):
-    '''
-    Returns the indexes of the black squares. Consider the following pattern:
-        b w b w
-        w b w b    
-    The output is [0,2,5,7]
-    Whereas: 
-        w b w b
-        b w b w
-    The output is [1,3,4,6]
-
-
-    '''
-    sqr_idx_list = np.array([]).astype(int)
-    for v in range(ptrn_size[1]-1):
-        new_idx_list = np.array(range(first_black_idx,(ptrn_size[0]-1),2)).astype(int) + int(v*(ptrn_size[0]-1))
-        sqr_idx_list = np.concatenate((sqr_idx_list,new_idx_list), axis=0)
-
-        if (ptrn_size[0]%2-1)==0:
-            first_black_idx+=1
-            first_black_idx = first_black_idx%2
-
-    return sqr_idx_list
-def get_chess_black_squares(frame, P_pxl, ptrn_size, erode_flag=False):
-    '''
-    Return a mask that only contains the black squares from the chessboard.
-    
-    inputs: 
-            frame: gray scaled image.
-
-    '''
-    # Step 1: Determine if the pattern starts with a black or white square.
-    idx1 = corner_indexes(ptrn_size, 0)
-    sqr1_pnts = P_pxl[:,idx1].astype(int)
-    mask_sqr1 = np.zeros(frame.shape[:2],dtype="uint8")
-    cv2.fillPoly(mask_sqr1,[sqr1_pnts.T],(255))
-
-    idx2 = corner_indexes(ptrn_size, 1)
-    sqr2_pnts = P_pxl[:,idx2].astype(int)
-    mask_sqr2 = np.zeros(frame.shape[:2],dtype="uint8")
-    cv2.fillPoly(mask_sqr2,[sqr2_pnts.T],(255))
-    
-    # compute the intensity value I: (Lowest 'I' identifies the black square)
-    I_sqr1 = np.sum(cv2.bitwise_and(frame,frame,mask=mask_sqr1))
-    I_sqr2 = np.sum(cv2.bitwise_and(frame,frame,mask=mask_sqr2))
-    
-    first_black_idx = 0 if I_sqr1<I_sqr2 else 1
-
-    # Step 2: Recover the corner indexes for all squares in the chessboard that are black.
-    sqr_idx_list = get_black_sqr_idxs(ptrn_size,first_black_idx)
-
-    final_mask = np.zeros(frame.shape[:2],dtype="uint8")
-    for sqr_idx in list(sqr_idx_list):
-        idxs = corner_indexes(ptrn_size, sqr_idx)
-        sqr_pnts = P_pxl[:,idxs].astype(int)
-        cv2.fillPoly(final_mask,[sqr_pnts.T],(255))
-
-    # Step 3: erode to reduce the white spaces:
-    kernel = np.ones((8,8),np.uint8)
-    final_mask = cv2.erode(final_mask,kernel,iterations = 1)
-
-    frame_black_sqrs = cv2.bitwise_and(frame,frame,mask=final_mask)  
-    
-    return frame_black_sqrs, final_mask
-def get_laser_pixel_coords_from_black_squares(frm, thr):
-    
-    # step 1: threshold the image
-    mask = cv2.threshold(frm, thr, 255, cv2.THRESH_BINARY)[1]
-
-    # step 2: find the center of the blob (the blob should be only one at the beam location)
-    mask_contour = mask.copy()
-    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = imutils.grab_contours(contours)
-    x_pxl, y_pxl = -1, -1
-    bigest_area = -np.Inf
-    for cntr in contours:
-        M = cv2.moments(cntr)
-        if bigest_area < M['m00'] and M['m00'] > 0:
-            bigest_area = M['m00']
-            x_pxl = M["m10"] / M["m00"]
-            y_pxl = M["m01"] / M["m00"]
-
-    # output
-    ret = bigest_area != -np.Inf
-    L_pxl = np.array([[x_pxl],[y_pxl]])
-    return ret, L_pxl
 
 
 # Load camera matrices
@@ -154,8 +46,8 @@ for row in srvs_data:
         continue
     
     # Step 2: mask and retrieve only the black squares in the chessboard
-    fr_sqr_black, roi_mask = get_chess_black_squares(frame_grey, P_pxl_list[0].T, ptrn_size)
-    ret, L_pxl = get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 140)
+    fr_sqr_black, roi_mask = chu.get_chess_black_squares(frame_grey, P_pxl_list[0].T, ptrn_size)
+    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 140)
     if ret==False: # some beams are very small.
         continue
 
@@ -196,22 +88,33 @@ for row in srvs_data:
 
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
-# Up to here we have laser in pixel, world coords. 
-
-def compute_matrix_Lo(L_w, Ul, k0):
-    # step 1:
-    Pl = np.multiply(Ul,k0)
-
-
-    # step 2:
-
-    Rl, Tl = 0,0
-    return Rl, Tl
-
-k0 = np.stack([np.sqrt(sum(c[1]**2)) for c in cam2w_info_list]).reshape(1,-1)
+# --------------------------------------------------------------------------------
+# Up to here we have laser in pixel, world coords, and Ul unitary vectors. 
+# now se compute R and T using optimization
 Ul  = np.stack(tuple(Ul_list),axis=1).reshape(3,-1)
 L_w = np.stack(tuple(L_w_list),axis=1).reshape(3,-1)
-Rl, Tl = compute_matrix_Lo(L_pxl, Ul, k0)
 
-#cam2w_info = []
-a=2
+# find the angles and T using optimization:
+R0 = cam2w_info_list[0][0]
+T0 = cam2w_info_list[0][1]
+angles_0,_ = cv2.Rodrigues(R0)
+angles_0 = angles_0.reshape(1,3)
+T0 = T0.reshape(1,3)
+R_hat,T_hat,res = lcu.estimate_R_T_optimization(angles_0, T0, L_w,Ul)
+
+# Compute error:
+# 1. project Pw to Pl
+# 2. compute unitary vectors and compare:
+Pl_hat = R_hat.dot(L_w) + T_hat
+Ul_hat = Pl_hat/np.sqrt(np.sum(Pl_hat**2,axis=0,keepdims=True))
+
+er = np.sum(np.sum((Ul_hat - Ul)**2,axis=0,keepdims=True))
+print(f'approximation error of unitary vectors: {er}')
+
+# ------------------------------------------
+# -----------------------------------------
+# Finally just save the calibration matrices:
+out_file_pref = './out/laser'
+np.save(out_file_pref + '_R_hat.npy', R_hat)
+np.save(out_file_pref + '_T_hat.npy', T_hat)
+print(f'saved in {out_file_pref}')
