@@ -40,9 +40,9 @@ def get_black_sqr_idxs(ptrn_size,first_black_idx):
         new_idx_list = np.array(range(first_black_idx,(ptrn_size[0]-1),2)).astype(int) + int(v*(ptrn_size[0]-1))
         sqr_idx_list = np.concatenate((sqr_idx_list,new_idx_list), axis=0)
 
-        if (ptrn_size[0]%2-1)==0:
-            first_black_idx+=1
-            first_black_idx = first_black_idx%2
+        # alternate the first block
+        first_black_idx+=1
+        first_black_idx = first_black_idx%2
 
     return sqr_idx_list
 def get_chess_black_squares(frame, P_pxl, ptrn_size, erode_flag=False):
@@ -80,7 +80,7 @@ def get_chess_black_squares(frame, P_pxl, ptrn_size, erode_flag=False):
         cv2.fillPoly(final_mask,[sqr_pnts.T],(255))
 
     # Step 3: erode to reduce the white spaces:
-    kernel = np.ones((8,8),np.uint8)
+    kernel = np.ones((4,4),np.uint8)
     final_mask = cv2.erode(final_mask,kernel,iterations = 1)
 
     frame_black_sqrs = cv2.bitwise_and(frame,frame,mask=final_mask)  

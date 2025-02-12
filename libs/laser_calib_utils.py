@@ -11,6 +11,9 @@ def get_laser_pixel_coords_from_black_squares(frm, thr):
     mask = cv2.threshold(frm, thr, 255, cv2.THRESH_BINARY)[1]
 
     # step 2: find the center of the blob (the blob should be only one at the beam location)
+    kernel = np.ones((4,4))
+    mask = cv2.dilate(mask,kernel,iterations = 2)
+
     mask_contour = mask.copy()
     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = imutils.grab_contours(contours)
@@ -26,6 +29,10 @@ def get_laser_pixel_coords_from_black_squares(frm, thr):
     # output
     ret = bigest_area != -np.Inf
     L_pxl = np.array([[x_pxl],[y_pxl]])
+
+    cv2.imshow('contours', mask_contour)
+    cv2.waitKey(0)
+
     return ret, L_pxl
 
 

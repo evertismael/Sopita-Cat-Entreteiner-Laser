@@ -7,14 +7,14 @@ import time
 
 
 # load servos file:
-folder_path = './cal_laser/cal_laser_second_try/'
+folder_path = './cal_laser/'
 srv_file = folder_path + 'servos.txt'
 with open(srv_file) as f:
     srvs_data = f.read()
 
 
 # Load camera matrices
-cal_file_pref = './out/out_first_try/cal1'
+cal_file_pref = './out/cal1'
 _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pref)
 
 
@@ -40,14 +40,25 @@ for row in srvs_data:
     # -------------------------------------------------------------
     # Step 1: find the chess pattern in the image to remove everything from around.
     frame_grey = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    ptrn_size = ((11,7))
+    ptrn_size = ((10,7))
     ret_list, P_chs_list, P_pxl_list, img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
+    cv2.drawChessboardCorners(frame,ptrn_size,P_pxl_list[0],True)
+    for p_idx, p in enumerate(P_pxl_list[0]):
+        p = [int(a) for a in p]
+        cv2.putText(frame,str(p_idx),p,cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
+    cv2.imshow('', frame)
+    #cv2.waitKey(0)
+
     if ret_list[0]==False: # some pictures do not find the chessboard.
         continue
     
     # Step 2: mask and retrieve only the black squares in the chessboard
     fr_sqr_black, roi_mask = chu.get_chess_black_squares(frame_grey, P_pxl_list[0].T, ptrn_size)
-    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 140)
+
+    cv2.imshow('black', fr_sqr_black)
+    #cv2.waitKey(0)
+
+    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 190)
     if ret==False: # some beams are very small.
         continue
 
@@ -81,9 +92,14 @@ for row in srvs_data:
     cam2w_info_list.append((R,T,mtx_new,Ainv))
 
     print(row)    
-    #cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255),10,1)
-    #cv2.imshow('', frame_grey)
-    #cv2.waitKey(0)
+    cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255),10,1)
+    
+    #cv2.drawChessboardCorners(frame_grey,ptrn_size,P_pxl_list[0],True)
+    cv2.imshow('ssss', frame_grey)
+
+    cv2.waitKey(0)
+
+    print(f'DDDDD: {row}')
 
 
 # --------------------------------------------------------------------------------

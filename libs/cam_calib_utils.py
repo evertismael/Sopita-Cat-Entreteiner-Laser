@@ -69,7 +69,7 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
         ret_list.append(ret)
         if ret==True:
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-            P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(1,-1),criteria)
+            P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(0,0),criteria)
             P_pxl = P_pxl.reshape(-1,2)
             
             # Notice that since each point is taken from different images, the origin of the world
