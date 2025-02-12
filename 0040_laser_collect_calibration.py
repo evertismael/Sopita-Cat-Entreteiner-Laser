@@ -59,3 +59,6 @@ while True:
         print('-----')
         time.sleep(1)
         idx+=1
+
+laser.value = -1
+time.sleep(0.1)
