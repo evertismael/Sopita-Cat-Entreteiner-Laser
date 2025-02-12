@@ -43,15 +43,13 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
     # creating the lists (one sequence per image)
     P_chs_list = []
     P_pxl_list = []
+    ret_list = []
     img_size = 0,0
     for img_file in chess_img_files:
         frame = cv2.imread(img_file)
         if scale_down:
             frame = cv2.resize(frame,(640,480))
-        #frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
-        frame_hsv = cv2.cvtColor(frame,cv2.COLOR_RGB2HSV)
-        cv2.imshow('',frame_hsv[:,:,2])
-        cv2.waitKey(0)
+        frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
         '''
         alpha = 1.2 # Contrast control (1.0-3.0)
         beta = 0 # Brightness control (0-100)
@@ -61,8 +59,7 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
         cv2.waitKey(0)
         '''
         ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size,None)
-
-        
+        ret_list.append(ret)
         if ret==True:
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
             P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(1,-1),criteria)
@@ -79,7 +76,10 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
             P_pxl_list.append(P_pxl)
 
             img_size = frame_gray.shape
-    return ret, P_chs_list, P_pxl_list,img_size
+        else:
+            P_chs_list.append([])
+            P_pxl_list.append([])
+    return ret_list, P_chs_list, P_pxl_list,img_size
 
 def load_camera_calibration_matrices(cal_file_pref):
     mtx = np.load(cal_file_pref + '_mtx.npy')

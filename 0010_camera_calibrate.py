@@ -2,7 +2,7 @@ import cv2, glob
 import numpy as np
 from libs.cam_calib_utils import inv_svd, find_sequence_chessboard_points
 
-img_folder = './cal_imgs/'
+img_folder = './cal_imgs/prev_data/'
 chess_img_files = glob.glob(img_folder+'*.png')
 
 
@@ -10,10 +10,15 @@ chess_img_files = glob.glob(img_folder+'*.png')
 #        as well as the ones in chess coords.
 ptrn_size = ((11,7))
 scale_down = False
-ret, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
+ret_list, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
+# select the pairs that are valid:
+P_chs_list = [P_chs for P_chs,rl in zip(P_chs_list,ret_list) if rl==True]
+P_pxl_list = [P_pxl for P_pxl,rl in zip(P_pxl_list,ret_list) if rl==True]
+
 
 # Step2: Compute the calibration, and return the matrices: (img_size(is reverted))
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(P_chs_list,P_pxl_list,img_size[::-1],None,None)
+
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -41,6 +46,6 @@ np.save(out_file_pref + '_dist.npy', dist)
 np.save(out_file_pref + '_rvecs.npy', rvecs)
 np.save(out_file_pref + '_tvecs.npy', tvecs)
 np.save(out_file_pref + '_imgsize.npy', img_size)
-
+print(f'saved in {out_file_pref}')
 
 

@@ -6,7 +6,7 @@ import imutils
 from scipy.linalg import null_space
 
 # load servos file:
-folder_path = './cal_laser/'
+folder_path = './cal_laser/cal_laser_second_try/'
 srv_file = folder_path + 'servos.txt'
 with open(srv_file) as f:
     srvs_data = f.read()
@@ -122,7 +122,7 @@ def get_laser_pixel_coords_from_black_squares(frm, thr):
 
 
 # Load camera matrices
-cal_file_pref = './out/cal1'
+cal_file_pref = './out/out_first_try/cal1'
 _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pref)
 
 
@@ -131,7 +131,7 @@ _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pr
 srvs_data = srvs_data.split('\n')
 srvs_data = srvs_data[:-1]
 
-U_list = []
+Ul_list = []
 L_pxl_list = []
 L_w_list = []
 cam2w_info_list = []
@@ -149,8 +149,8 @@ for row in srvs_data:
     # Step 1: find the chess pattern in the image to remove everything from around.
     frame_grey = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     ptrn_size = ((11,7))
-    ret, P_chs_list, P_pxl_list, img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
-    if ret==False: # some pictures do not find the chessboard.
+    ret_list, P_chs_list, P_pxl_list, img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
+    if ret_list[0]==False: # some pictures do not find the chessboard.
         continue
     
     # Step 2: mask and retrieve only the black squares in the chessboard
@@ -179,11 +179,11 @@ for row in srvs_data:
     sin_tht = np.sin(np.deg2rad(theta_deg))
     cos_tht = np.cos(np.deg2rad(theta_deg))
 
-
-    U = np.array([sin_phi*cos_tht, sin_phi*sin_tht, cos_phi])
+    # unitary directional vector in Laser coords:
+    ul = np.array([sin_phi*cos_tht, sin_phi*sin_tht, cos_phi])
 
     # store for further processing:
-    U_list.append(U)
+    Ul_list.append(ul)
     L_pxl_list.append(L_pxl)
     L_w_list.append(L_w)
     cam2w_info_list.append((R,T,mtx_new,Ainv))
@@ -198,45 +198,20 @@ for row in srvs_data:
 # --------------------------------------------------------------------------------
 # Up to here we have laser in pixel, world coords. 
 
-def compute_matrix_Lo(L_w, U):
-    xyz = L_w.T
-    u_xl = U[0,:,None]
-    u_yl = U[1,:,None]
-    u_zl = U[2,:,None]
-    A00 =  np.multiply(u_yl,xyz)
-    A01 = -np.multiply(u_xl,xyz)
-    A10 = -np.multiply(u_zl,xyz)
-    Az = np.zeros_like(A00)
-
-    A0 = np.column_stack((A00,A01,Az))
-    A1 = np.column_stack((A10,Az, A01))
-    #A2 = np.column_stack((Az,Az, Az,xyz))
-    A = np.row_stack((A0,A1))
-    U, S, Vh = np.linalg.svd(A, full_matrices=True)
-    #Azzz = A.T.dot(A)
-
-    b = np.row_stack((np.zeros((2*U.shape[1],1)),np.ones((U.shape[1],1))))
+def compute_matrix_Lo(L_w, Ul, k0):
+    # step 1:
+    Pl = np.multiply(Ul,k0)
 
 
+    # step 2:
 
+    Rl, Tl = 0,0
+    return Rl, Tl
 
-    Anull = null_space(A)
-    Ainv = ccu.inv_svd(A)
-    AtA = A.T.dot(A)
-    Atb = A.T.dot(b)
-    xx = ccu.inv_svd(AtA).dot(Atb)
-
-    b = np.zeros((2*U.shape[1],1))
-    Lo = Ainv_left.dot(b)
-    
-
-    return Lo
-
-U  = np.stack(tuple(U_list),axis=1).reshape(3,-1)
-L_pxl = np.stack(tuple(L_pxl_list),axis=1).reshape(2,-1)
+k0 = np.stack([np.sqrt(sum(c[1]**2)) for c in cam2w_info_list]).reshape(1,-1)
+Ul  = np.stack(tuple(Ul_list),axis=1).reshape(3,-1)
 L_w = np.stack(tuple(L_w_list),axis=1).reshape(3,-1)
-
-Lo = compute_matrix_Lo(L_pxl, L_w)
+Rl, Tl = compute_matrix_Lo(L_pxl, Ul, k0)
 
 #cam2w_info = []
 a=2
