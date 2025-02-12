@@ -27,3 +27,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 for i in range(70):
     print(f'estimated: {P_w_hat[:,i]} vs given: {P_w[:,i]}')
     a=3
+

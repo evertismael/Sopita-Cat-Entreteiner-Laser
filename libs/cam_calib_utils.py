@@ -110,3 +110,13 @@ def uv2XYZ(P_pxl, Ainv, R, T):
     P_w_hat = R.T.dot(Z_c*Ainv.dot(U) - T)
 
     return P_w_hat
+
+
+
+
+def load_RTA_camera_matrices(path='./out/camera'):
+    R_cam = np.load(path + '_R_cam.npy')
+    T_cam = np.load(path + '_T_cam.npy')
+    A_cam = np.load(path + '_A_cam.npy')
+    Ainv_cam = np.load(path + '_Ainv_cam.npy')
+    return R_cam, T_cam, A_cam, Ainv_cam

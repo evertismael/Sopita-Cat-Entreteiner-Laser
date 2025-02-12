@@ -114,7 +114,21 @@ print(f'approximation error of unitary vectors: {er}')
 # ------------------------------------------
 # -----------------------------------------
 # Finally just save the calibration matrices:
+R_las = R_hat
+T_las = T_hat
 out_file_pref = './out/laser'
-np.save(out_file_pref + '_R_hat.npy', R_hat)
-np.save(out_file_pref + '_T_hat.npy', T_hat)
-print(f'saved in {out_file_pref}')
+np.save(out_file_pref + '_R_las.npy', R_las)
+np.save(out_file_pref + '_T_las.npy', T_las)
+print(f'Laser saved in {out_file_pref}')
+
+
+R_cam = cam2w_info_list[0][0]
+T_cam = cam2w_info_list[0][1].reshape(1,3)
+Ainv_cam = Ainv
+A_cam = mtx_new
+out_file_pref = './out/camera'
+np.save(out_file_pref + '_R_cam.npy', R_cam)
+np.save(out_file_pref + '_T_cam.npy', T_cam)
+np.save(out_file_pref + '_A_cam.npy', A_cam)
+np.save(out_file_pref + '_Ainv_cam.npy', Ainv_cam)
+print(f'Laser saved in {out_file_pref}')

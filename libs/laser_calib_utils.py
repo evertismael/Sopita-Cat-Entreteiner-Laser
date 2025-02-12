@@ -54,3 +54,8 @@ def estimate_R_T_optimization(angles_0, T0, Pw,Ul):
     R_hat,_ = cv2.Rodrigues(angles_hat)
 
     return R_hat, T_hat, res
+
+def load_RT_laser_matrices(path='./out/laser'):
+    R_las = np.load(path + '_R_las.npy')
+    T_las = np.load(path + '_T_las.npy')
+    return R_las, T_las
