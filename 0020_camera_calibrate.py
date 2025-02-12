@@ -2,12 +2,13 @@ import cv2, glob
 import numpy as np
 from libs.cam_calib_utils import inv_svd, find_sequence_chessboard_points
 
-img_folder = './cal_imgs/prev_data/'
+img_folder = './cal_imgs/'
 chess_img_files = glob.glob(img_folder+'*.png')
 
 
 # Step1: Collect all sequence of points for each chessboard, 
 #        as well as the ones in chess coords.
+print(chess_img_files)
 ptrn_size = ((11,7))
 scale_down = False
 ret_list, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
