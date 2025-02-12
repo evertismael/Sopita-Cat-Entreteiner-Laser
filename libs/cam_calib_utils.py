@@ -57,8 +57,15 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
         cv2.imshow('',frame_gray)
         cv2.imshow('coor',adjusted)
         cv2.waitKey(0)
+        for i in range(5,11):
+            for j in range(5,10):
+                ptrn_size_=((i,j))
+                ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size_,None)
+                if ret==True:
+                    a=2
         '''
         ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size,None)
+
         ret_list.append(ret)
         if ret==True:
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)

@@ -9,7 +9,7 @@ chess_img_files = glob.glob(img_folder+'*.png')
 # Step1: Collect all sequence of points for each chessboard, 
 #        as well as the ones in chess coords.
 print(chess_img_files)
-ptrn_size = ((11,7))
+ptrn_size = ((10,7))
 scale_down = False
 ret_list, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
 # select the pairs that are valid:
@@ -24,7 +24,8 @@ ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(P_chs_list,P_pxl_list,img_siz
 # -------------------------------------------------------------
 # -------------------------------------------------------------
 # Step3: save results and show location of points on one image:
-for i in [33]:
+for i in range(19):
+    print(i)
     frame = cv2.imread(chess_img_files[i])
     frame = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
     #frame = cv2.resize(frame,(640,480))
