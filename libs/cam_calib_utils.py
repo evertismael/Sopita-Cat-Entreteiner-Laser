@@ -66,12 +66,18 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
             P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(1,-1),criteria)
             P_pxl = P_pxl.reshape(-1,2)
             
+            # Notice that since each point is taken from different images, the origin of the world
+            # coordinates (corner of chessboard with 0 index) might be different.
+            # Ensure that the origin is the left most corner.
+            if P_pxl[0,1] > P_pxl[-1,1]: # P0 to the right of Pf (INVERT ORDER)
+                P_pxl = P_pxl[::-1,:]
+
             # save in the list:
             P_chs_list.append(P_chs)
             P_pxl_list.append(P_pxl)
 
             img_size = frame_gray.shape
-    return P_chs_list, P_pxl_list,img_size
+    return ret, P_chs_list, P_pxl_list,img_size
 
 def load_camera_calibration_matrices(cal_file_pref):
     mtx = np.load(cal_file_pref + '_mtx.npy')

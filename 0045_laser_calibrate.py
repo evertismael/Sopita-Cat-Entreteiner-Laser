@@ -2,6 +2,8 @@ import cv2, glob
 import libs.cam_calib_utils as ccu
 import numpy as np
 import time
+import imutils
+from scipy.linalg import null_space
 
 # load servos file:
 folder_path = './cal_laser/'
@@ -31,8 +33,6 @@ def corner_indexes(ptrn_size, sqr_idx):
     idxs.append(sqr_idx+u+N +1)
     idxs.append(sqr_idx+u+N   )
     return idxs
-
-
 def get_black_sqr_idxs(ptrn_size,first_black_idx):
     '''
     Returns the indexes of the black squares. Consider the following pattern:
@@ -56,9 +56,6 @@ def get_black_sqr_idxs(ptrn_size,first_black_idx):
             first_black_idx = first_black_idx%2
 
     return sqr_idx_list
-
-
-
 def get_chess_black_squares(frame, P_pxl, ptrn_size, erode_flag=False):
     '''
     Return a mask that only contains the black squares from the chessboard.
@@ -94,18 +91,52 @@ def get_chess_black_squares(frame, P_pxl, ptrn_size, erode_flag=False):
         cv2.fillPoly(final_mask,[sqr_pnts.T],(255))
 
     # Step 3: erode to reduce the white spaces:
-    kernel = np.ones((7,7),np.uint8)
+    kernel = np.ones((8,8),np.uint8)
     final_mask = cv2.erode(final_mask,kernel,iterations = 1)
 
     frame_black_sqrs = cv2.bitwise_and(frame,frame,mask=final_mask)  
     
     return frame_black_sqrs, final_mask
+def get_laser_pixel_coords_from_black_squares(frm, thr):
+    
+    # step 1: threshold the image
+    mask = cv2.threshold(frm, thr, 255, cv2.THRESH_BINARY)[1]
+
+    # step 2: find the center of the blob (the blob should be only one at the beam location)
+    mask_contour = mask.copy()
+    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = imutils.grab_contours(contours)
+    x_pxl, y_pxl = -1, -1
+    bigest_area = -np.Inf
+    for cntr in contours:
+        M = cv2.moments(cntr)
+        if bigest_area < M['m00'] and M['m00'] > 0:
+            bigest_area = M['m00']
+            x_pxl = M["m10"] / M["m00"]
+            y_pxl = M["m01"] / M["m00"]
+
+    # output
+    ret = bigest_area != -np.Inf
+    L_pxl = np.array([[x_pxl],[y_pxl]])
+    return ret, L_pxl
+
+
+# Load camera matrices
+cal_file_pref = './out/cal1'
+_, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pref)
+
 
 # Each row in the file contain the name of the image and the angles of the servos.
 # Notice that only one point is recovered per row (Since we have a single beam).
 srvs_data = srvs_data.split('\n')
+srvs_data = srvs_data[:-1]
+
+U_list = []
+L_pxl_list = []
+L_w_list = []
+cam2w_info_list = []
 for row in srvs_data:
-    #row = srvs_data[2]
+    #row = srvs_data[1]
     row = row.split('\t')
 
     # load the image
@@ -118,25 +149,94 @@ for row in srvs_data:
     # Step 1: find the chess pattern in the image to remove everything from around.
     frame_grey = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     ptrn_size = ((11,7))
-    P_chs_list, P_pxl_list,img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
+    ret, P_chs_list, P_pxl_list, img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
+    if ret==False: # some pictures do not find the chessboard.
+        continue
+    
+    # Step 2: mask and retrieve only the black squares in the chessboard
     fr_sqr_black, roi_mask = get_chess_black_squares(frame_grey, P_pxl_list[0].T, ptrn_size)
-    
-    #cv2.imshow('', frame)
-    #cv2.imshow('a', final_mask)
-    cv2.imshow('dd', fr_sqr_black)
-    cv2.waitKey(0)
-    a=2
-    a=2
+    ret, L_pxl = get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 140)
+    if ret==False: # some beams are very small.
+        continue
 
-    #for i in range(300):
+    # -------------------------------------------------------------
+    # find the world coordinates point of the laser beam from the pixel coords
+    # -------------------------------------------------------------
+    # Step 3: Using the image pixel and world points, compute R and T.
+    ret, rvec, T=cv2.solvePnP(P_chs_list[0],P_pxl_list[0],mtx_new,dist)
+    R,_ = cv2.Rodrigues(rvec)
+    Ainv = ccu.inv_svd(mtx_new)
 
-        #cv2.imshow('', frame_grey)
+    # Step 4: with R,T,Ainv known we can map any point in the image 
+    #         to the corresponding point in the plane of the chessboard in world coords.
+    L_w = ccu.uv2XYZ(L_pxl, Ainv, R, T)
+
+    # Step 5: lastly recover the rotation angles from the servos and compute the directional vector:
+    theta_deg = 90 + float(row[1])
+    phi_deg = 90 - float(row[2])
+    sin_phi = np.sin(np.deg2rad(phi_deg))
+    cos_phi = np.cos(np.deg2rad(phi_deg))
+    sin_tht = np.sin(np.deg2rad(theta_deg))
+    cos_tht = np.cos(np.deg2rad(theta_deg))
 
 
+    U = np.array([sin_phi*cos_tht, sin_phi*sin_tht, cos_phi])
 
+    # store for further processing:
+    U_list.append(U)
+    L_pxl_list.append(L_pxl)
+    L_w_list.append(L_w)
+    cam2w_info_list.append((R,T,mtx_new,Ainv))
 
-    #print(row)
+    print(row)    
+    #cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255),10,1)
+    #cv2.imshow('', frame_grey)
     #cv2.waitKey(0)
+
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# Up to here we have laser in pixel, world coords. 
+
+def compute_matrix_Lo(L_w, U):
+    xyz = L_w.T
+    u_xl = U[0,:,None]
+    u_yl = U[1,:,None]
+    u_zl = U[2,:,None]
+    A00 =  np.multiply(u_yl,xyz)
+    A01 = -np.multiply(u_xl,xyz)
+    A10 = -np.multiply(u_zl,xyz)
+    Az = np.zeros_like(A00)
+
+    A0 = np.column_stack((A00,A01,Az))
+    A1 = np.column_stack((A10,Az, A01))
+    #A2 = np.column_stack((Az,Az, Az,xyz))
+    A = np.row_stack((A0,A1))
+    U, S, Vh = np.linalg.svd(A, full_matrices=True)
+    #Azzz = A.T.dot(A)
+
+    b = np.row_stack((np.zeros((2*U.shape[1],1)),np.ones((U.shape[1],1))))
+
+
+
+
+    Anull = null_space(A)
+    Ainv = ccu.inv_svd(A)
+    AtA = A.T.dot(A)
+    Atb = A.T.dot(b)
+    xx = ccu.inv_svd(AtA).dot(Atb)
+
+    b = np.zeros((2*U.shape[1],1))
+    Lo = Ainv_left.dot(b)
     
 
+    return Lo
 
+U  = np.stack(tuple(U_list),axis=1).reshape(3,-1)
+L_pxl = np.stack(tuple(L_pxl_list),axis=1).reshape(2,-1)
+L_w = np.stack(tuple(L_w_list),axis=1).reshape(3,-1)
+
+Lo = compute_matrix_Lo(L_pxl, L_w)
+
+#cam2w_info = []
+a=2
