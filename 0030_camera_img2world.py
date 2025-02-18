@@ -5,9 +5,9 @@ import cv2
 # Step 1: Load a single image that contains the chess board. 
 #         This Board defines the plane over which we can recover the XYZ coordinate.
 #         We cannot recover XYZ of other points, ONLY works for points over the plane.
-image_file = './cal_imgs/19.png'
+image_file = './cal_imgs/1_img.png'
 ptrn_size, scale_down = ((10,7)), False
-ret_list, P_chs_list, P_pxl_list,img_size = ccu.find_sequence_chessboard_points([image_file],ptrn_size,scale_down)
+ret_list, P_chs_list, P_pxl_list,img_size = ccu.find_chessboard_on_image_files([image_file],ptrn_size,scale_down)
 P_w = P_chs_list[0].T   # (3,Npoints)
 P_pxl = P_pxl_list[0].T # (2, Npoints)
 

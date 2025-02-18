@@ -1,9 +1,9 @@
 import cv2, glob
 import numpy as np
-from libs.cam_calib_utils import inv_svd, find_sequence_chessboard_points
+from libs.cam_calib_utils import inv_svd, find_chessboard_on_image_files
 
 img_folder = './cal_imgs/'
-chess_img_files = glob.glob(img_folder+'*.png')
+chess_img_files = glob.glob(img_folder+'*_img.png')
 
 
 # Step1: Collect all sequence of points for each chessboard, 
@@ -11,7 +11,7 @@ chess_img_files = glob.glob(img_folder+'*.png')
 print(chess_img_files)
 ptrn_size = ((10,7))
 scale_down = False
-ret_list, P_chs_list, P_pxl_list,img_size = find_sequence_chessboard_points(chess_img_files, ptrn_size,scale_down)
+ret_list, P_chs_list, P_pxl_list,img_size = find_chessboard_on_image_files(chess_img_files, ptrn_size,scale_down)
 # select the pairs that are valid:
 P_chs_list = [P_chs for P_chs,rl in zip(P_chs_list,ret_list) if rl==True]
 P_pxl_list = [P_pxl for P_pxl,rl in zip(P_pxl_list,ret_list) if rl==True]
@@ -23,8 +23,8 @@ ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(P_chs_list,P_pxl_list,img_siz
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
-# Step3: save results and show location of points on one image:
-for i in range(19):
+# Step3: save results and show location of points on all image:
+for i in range(len(chess_img_files)):
     print(i)
     frame = cv2.imread(chess_img_files[i])
     frame = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)

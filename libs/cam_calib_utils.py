@@ -80,7 +80,7 @@ def find_chessboard_on_image_files(chess_img_files, ptrn_size, scale_down:False)
         ret_list.append(ret)
         P_chs_list.append(P_chs)
         P_pxl_list.append(P_pxl)
-        img_size = frame.shape
+        img_size = frame.shape[:2]
     return ret_list, P_chs_list, P_pxl_list,img_size
 
 def load_camera_calibration_matrices(cal_file_pref):

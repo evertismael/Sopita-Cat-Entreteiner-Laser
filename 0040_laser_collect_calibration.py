@@ -5,6 +5,7 @@ import libs.sopita as sopita
 from libs import myservo as ms
 import itertools
 import numpy as np
+from libs.cam_calib_utils import detect_chess_board_points
 
 """ This scripts alows to move the laser left-right-up-down so that the beam
     can be located in the center of the image.
@@ -34,6 +35,19 @@ idx = 0
 while True:
     # read camera frame:  
     valid, frame = cam.read()
+    frame_to_save = frame.copy()
+
+    # try to detect the chessboard
+    ptrn_size = ((10,7))
+    ret, P_chs, P_pxl = detect_chess_board_points(frame, ptrn_size)
+     
+     # if detected draw:
+    if ret==True:
+        cv2.drawChessboardCorners(frame,ptrn_size,P_pxl,ret)
+        for p_idx, p in enumerate(P_pxl):
+            p = [int(a) for a in p]
+            cv2.putText(frame,str(p_idx),p,cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
+
     cv2.imshow('Calibration',frame)
 
     inkey = cv2.waitKey(1)
@@ -46,19 +60,26 @@ while True:
     if inkey == ord('q'):
         break
     elif inkey == ord('c'):
-        # save image:
-        filename = cal_path+'/'+str(idx)+'.png'
-        cv2.imwrite(filename, frame)
+        if ret==True:
+            # save image:
+            filename = cal_path+'/'+str(idx)+'_chess.png'
+            cv2.imwrite(filename, frame)
 
-        ang1 = servo1.value*ms.VAL2ANGLE
-        ang2 = servo2.value*ms.VAL2ANGLE
-        
-        with open(cal_servos_file, "a") as f:
-            tof = f'{idx:d}\t{ang1:.3f}\t{ang2:.3f}\t{servo1.value:.3f}\t{servo2.value:.3f}\n'
-            f.write(tof)
-        print('-----')
-        time.sleep(1)
-        idx+=1
+            filename = cal_path+'/'+str(idx)+'_img.png'
+            cv2.imwrite(filename, frame_to_save)
+            
+
+            ang1 = servo1.value*ms.VAL2ANGLE
+            ang2 = servo2.value*ms.VAL2ANGLE
+            
+            with open(cal_servos_file, "a") as f:
+                tof = f'{idx:d}\t{ang1:.3f}\t{ang2:.3f}\t{servo1.value:.3f}\t{servo2.value:.3f}\n'
+                f.write(tof)
+            print('-----')
+            time.sleep(1)
+            idx+=1
+        else:
+            print('Chess not in image, NOT SAVED')
 
 laser.value = -1
 time.sleep(0.1)
