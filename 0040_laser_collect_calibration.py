@@ -75,7 +75,7 @@ while True:
             with open(cal_servos_file, "a") as f:
                 tof = f'{idx:d}\t{ang1:.3f}\t{ang2:.3f}\t{servo1.value:.3f}\t{servo2.value:.3f}\n'
                 f.write(tof)
-            print('-----')
+            print(f'Image and Servo-values saved {idx}')
             time.sleep(1)
             idx+=1
         else:
