@@ -14,6 +14,7 @@ while True:
     ret, frame = cam.read()
     
     frame_to_save = frame.copy()
+    
     # try to detect the chessboard
     ptrn_size = ((10,7))
     ret, P_chs, P_pxl = detect_chess_board_points(frame, ptrn_size)
