@@ -27,19 +27,43 @@ def inv_svd(A):
 
     return A_inv
 
-def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False):
-    ''' Collects the pair of points in chess and pixel coords.
-        Each element in the lists are the associated ones to each image.
-         
-             ptrn_size: This is very important!!! wrong param->unable to decode.
-    '''
-    
+
+def detect_chess_board_points(frame, ptrn_size):
     # Precompute Pw positions: By default cv2 locates the origin at the left-upper corner.
     # format: (0,0,0),(1,0,0),(2,0,0)......(last,last,0)
     # world coords is over the paper hence z=0 for all poins.
     P_chs = np.zeros((ptrn_size[0]*ptrn_size[1],3), np.float32)
     P_chs[:,:2] = np.mgrid[0:ptrn_size[0],0:ptrn_size[1]].T.reshape(-1,2)
 
+    # convert to grey
+    frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
+    ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size,None)
+
+    if ret==True:
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(0,0),criteria)
+        P_pxl = P_pxl.reshape(-1,2)
+        
+        # Notice that since each point is taken from different images, the origin of the world
+        # coordinates (corner of chessboard with 0 index) might be different.
+        # Ensure that the origin is the left most corner.
+        if P_pxl[0,1] > P_pxl[-1,1]: # P0 to the right of Pf (INVERT ORDER)
+            P_pxl = P_pxl[::-1,:]
+    else:
+        P_chs = []
+        P_pxl = []
+    return ret, P_chs, P_pxl
+
+
+
+
+def find_chessboard_on_image_files(chess_img_files, ptrn_size, scale_down:False):
+    ''' Collects the pair of points in chess and pixel coords.
+        Each element in the lists are the associated ones to each image.
+         
+             ptrn_size: This is very important!!! wrong param->unable to decode.
+    '''
+       
     # creating the lists (one sequence per image)
     P_chs_list = []
     P_pxl_list = []
@@ -49,43 +73,14 @@ def find_sequence_chessboard_points(chess_img_files, ptrn_size, scale_down:False
         frame = cv2.imread(img_file)
         if scale_down:
             frame = cv2.resize(frame,(640,480))
-        frame_gray = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
-        '''
-        alpha = 1.2 # Contrast control (1.0-3.0)
-        beta = 0 # Brightness control (0-100)
-        frame_gray = cv2.convertScaleAbs(frame_gray, alpha=alpha, beta=beta)
-        cv2.imshow('',frame_gray)
-        cv2.imshow('coor',adjusted)
-        cv2.waitKey(0)
-        for i in range(5,11):
-            for j in range(5,10):
-                ptrn_size_=((i,j))
-                ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size_,None)
-                if ret==True:
-                    a=2
-        '''
-        ret, P_pxl_tmp = cv2.findChessboardCorners(frame_gray, ptrn_size,None)
 
+        ret, P_chs, P_pxl = detect_chess_board_points(frame, ptrn_size)
+        
+        # append results
         ret_list.append(ret)
-        if ret==True:
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-            P_pxl = cv2.cornerSubPix(frame_gray,P_pxl_tmp,(10,10),(0,0),criteria)
-            P_pxl = P_pxl.reshape(-1,2)
-            
-            # Notice that since each point is taken from different images, the origin of the world
-            # coordinates (corner of chessboard with 0 index) might be different.
-            # Ensure that the origin is the left most corner.
-            if P_pxl[0,1] > P_pxl[-1,1]: # P0 to the right of Pf (INVERT ORDER)
-                P_pxl = P_pxl[::-1,:]
-
-            # save in the list:
-            P_chs_list.append(P_chs)
-            P_pxl_list.append(P_pxl)
-
-            img_size = frame_gray.shape
-        else:
-            P_chs_list.append([])
-            P_pxl_list.append([])
+        P_chs_list.append(P_chs)
+        P_pxl_list.append(P_pxl)
+        img_size = frame.shape
     return ret_list, P_chs_list, P_pxl_list,img_size
 
 def load_camera_calibration_matrices(cal_file_pref):
