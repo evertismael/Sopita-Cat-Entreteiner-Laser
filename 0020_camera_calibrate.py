@@ -9,7 +9,7 @@ chess_img_files = glob.glob(img_folder+'*_img.png')
 # Step1: Collect all sequence of points for each chessboard, 
 #        as well as the ones in chess coords.
 print(chess_img_files)
-ptrn_size = ((10,7))
+ptrn_size = ((6,4))
 scale_down = False
 ret_list, P_chs_list, P_pxl_list,img_size = find_chessboard_on_image_files(chess_img_files, ptrn_size,scale_down)
 # select the pairs that are valid:

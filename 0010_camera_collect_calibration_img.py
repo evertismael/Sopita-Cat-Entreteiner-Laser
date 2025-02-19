@@ -16,7 +16,7 @@ while True:
     frame_to_save = frame.copy()
     
     # try to detect the chessboard
-    ptrn_size = ((10,7))
+    ptrn_size = ((6,4))
     ret, P_chs, P_pxl = detect_chess_board_points(frame, ptrn_size)
 
     # if detected draw:

@@ -6,7 +6,7 @@ import cv2
 #         This Board defines the plane over which we can recover the XYZ coordinate.
 #         We cannot recover XYZ of other points, ONLY works for points over the plane.
 image_file = './cal_imgs/1_img.png'
-ptrn_size, scale_down = ((10,7)), False
+ptrn_size, scale_down = ((6,4)), False
 ret_list, P_chs_list, P_pxl_list,img_size = ccu.find_chessboard_on_image_files([image_file],ptrn_size,scale_down)
 P_w = P_chs_list[0].T   # (3,Npoints)
 P_pxl = P_pxl_list[0].T # (2, Npoints)
@@ -24,7 +24,7 @@ Ainv = ccu.inv_svd(mtx_new)
 #         to the corresponding point in the plane of the chessboard in world coords.
 P_w_hat = ccu.uv2XYZ(P_pxl, Ainv, R, T)
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-for i in range(70):
+for i in range(P_w_hat.shape[1]):
     print(f'estimated: {P_w_hat[:,i]} vs given: {P_w[:,i]}')
     a=3
 
