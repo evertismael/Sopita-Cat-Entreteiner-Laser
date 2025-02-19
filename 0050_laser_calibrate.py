@@ -55,6 +55,10 @@ Ainv = ccu.inv_svd(mtx_new)
   ---------------------------------------------------------------------------------
   Step 2: Gather all detected beam points:
   ---------------------------------------------------------------------------------
+  Each image in chess_img_files contains a red-point over a black square over the 
+  chessboard. We collect this point in the image (L_pxl) and the corresponding wall
+  coords (L_wall). This L_wall is computed using R_cam_wall, T_cam_wall and exploiting
+  the fact that all points lay over the same plane z_wall = 0.
 '''
 chess_img_files = [folder_path + row.split('\t')[0] + '_img.png' for row in srvs_data]
 
