@@ -92,7 +92,7 @@ def load_camera_calibration_matrices(cal_file_pref):
 
     return mtx, dist, img_size, mtx_new, roi
 
-def uv2XYZ(P_pxl, Ainv, R, T):
+def uv2XYZ(P_pxl, Ainv, R_cam_wall, T_cam_wall):
     """ 
     Here we compute the XYZ coordinates in world coords, that are over the plane Z=0
     Notice that Z_c is the different for each point.
@@ -105,11 +105,11 @@ def uv2XYZ(P_pxl, Ainv, R, T):
     # to homogeneous coords
     U = np.row_stack((P_pxl,np.ones((1,P_pxl.shape[1]))))
 
-    r3 = R[:,2,None]
-    Z_c = r3.T.dot(T)/r3.T.dot(Ainv.dot(U))
+    r3 = R_cam_wall[:,2,None]
+    Z_c = r3.T.dot(T_cam_wall)/r3.T.dot(Ainv.dot(U))
 
     # compute XYZ:
-    P_w_hat = R.T.dot(Z_c*Ainv.dot(U) - T)
+    P_w_hat = R_cam_wall.T.dot(Z_c*Ainv.dot(U) - T_cam_wall)
 
     return P_w_hat
 

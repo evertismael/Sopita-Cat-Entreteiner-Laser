@@ -11,95 +11,105 @@ folder_path = './cal_laser/'
 srv_file = folder_path + 'servos.txt'
 with open(srv_file) as f:
     srvs_data = f.read()
+srvs_data = srvs_data.split('\n')
+srvs_data = srvs_data[:-1]
 
 
 # Load camera matrices
 cal_file_pref = './out/cal1'
 _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pref)
 
+''' 
+  ---------------------------------------------------------------------------------
+  Step 1: Compute camera R_cam_wall, T_cam_wall. 
+  They are needed to compute wall coordinates of laser beam detected on the image
+  ---------------------------------------------------------------------------------
+  Each row in file contains the name of one image.
+  Assumption: All images contain the chessboard in the same location.
+  Hence we use them to compute R_cam_wall and T_cam_wall
+'''
+chess_img_files = [folder_path + row.split('\t')[0] + '_img.png' for row in srvs_data]
+ptrn_size = ((6,4))
+ret_list, P_wall_list, P_pxl_list,img_size = ccu.find_chessboard_on_image_files(chess_img_files, ptrn_size,False)
+# select the pairs that are valid:
+P_wall_list = [P_wall for P_wall,rl in zip(P_wall_list,ret_list) if rl==True]
+P_pxl_list = [P_pxl for P_pxl,rl in zip(P_pxl_list,ret_list) if rl==True]
+srvs_data = [row for row,rl in zip(srvs_data,ret_list) if rl==True] # filter out images with no chessboard pattern
 
-# Each row in the file contain the name of the image and the angles of the servos.
-# Notice that only one point is recovered per row (Since we have a single beam).
-srvs_data = srvs_data.split('\n')
-srvs_data = srvs_data[:-1]
+rvec_list = []
+T_cam_list = []
+for P_wall, P_pxl in zip(P_wall_list, P_pxl_list):
+    ret, rvec, T_cam =cv2.solvePnP(P_wall,P_pxl,mtx_new,dist)
+    rvec_list.append(rvec)
+    T_cam_list.append(T_cam)
 
-Ul_list = []
+rvec_mean, rvec_std = np.mean(np.array(rvec_list),axis=0), np.std(np.array(rvec_list),axis=0)
+T_cam_mean, T_cam_std = np.mean(np.array(T_cam_list),axis=0), np.std(np.array(T_cam_list),axis=0)
+
+R_cam_wall,_ = cv2.Rodrigues(rvec_mean)
+T_cam_wall = T_cam_mean
+Ainv = ccu.inv_svd(mtx_new)
+
+
+'''
+  ---------------------------------------------------------------------------------
+  Step 2: Gather all detected beam points:
+  ---------------------------------------------------------------------------------
+'''
+chess_img_files = [folder_path + row.split('\t')[0] + '_img.png' for row in srvs_data]
+
 L_pxl_list = []
-L_w_list = []
-cam2w_info_list = []
-for row in srvs_data:
-    #row = srvs_data[1]
-    row = row.split('\t')
-
-    # load the image
-    img_name = f'{folder_path}{row[0]}.png' 
-    frame = cv2.imread(img_name)
-
-    # -------------------------------------------------------------
-    # find the pixel point of the laser.
-    # -------------------------------------------------------------
-    # Step 1: find the chess pattern in the image to remove everything from around.
+L_wall_list = []
+ret_list = []
+for img_file, P_pxl in zip(chess_img_files,P_pxl_list):
+    # A. load image, convert to grey, draw pattern
+    frame = cv2.imread(img_file)
     frame_grey = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    ptrn_size = ((10,7))
-    ret_list, P_chs_list, P_pxl_list, img_size = ccu.find_sequence_chessboard_points([img_name], ptrn_size,False)
-    cv2.drawChessboardCorners(frame,ptrn_size,P_pxl_list[0],True)
-    for p_idx, p in enumerate(P_pxl_list[0]):
-        p = [int(a) for a in p]
-        cv2.putText(frame,str(p_idx),p,cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
+    cv2.drawChessboardCorners(frame, ptrn_size, P_pxl,True)
+    cv2.putText(frame,'0', P_pxl[0,:].astype(int),cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
     cv2.imshow('', frame)
     #cv2.waitKey(0)
 
-    if ret_list[0]==False: # some pictures do not find the chessboard.
-        continue
-    
-    # Step 2: mask and retrieve only the black squares in the chessboard
-    fr_sqr_black, roi_mask = chu.get_chess_black_squares(frame_grey, P_pxl_list[0].T, ptrn_size)
-
+    # B. mask only black squares
+    fr_sqr_black, roi_mask = chu.get_chess_black_squares(frame_grey, P_pxl.T, ptrn_size)
     cv2.imshow('black', fr_sqr_black)
     #cv2.waitKey(0)
 
-    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 190)
-    if ret==False: # some beams are very small.
-        continue
+    # C. get Laser beam in pixel coords
+    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 130)
+    ret_list.append(ret)
+    if ret==True: # some beams are very small.
+        cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255,0,0),3,1)
+        cv2.imshow('laser beam', frame_grey)
+        
+        # D. get wall coords of laser beam:
+        L_wall = ccu.uv2XYZ(L_pxl, Ainv, R_cam_wall, T_cam_wall)
 
-    # -------------------------------------------------------------
-    # find the world coordinates point of the laser beam from the pixel coords
-    # -------------------------------------------------------------
-    # Step 3: Using the image pixel and world points, compute R and T.
-    ret, rvec, T=cv2.solvePnP(P_chs_list[0],P_pxl_list[0],mtx_new,dist)
-    R,_ = cv2.Rodrigues(rvec)
-    Ainv = ccu.inv_svd(mtx_new)
+        # save for later processing:
+        L_pxl_list.append(L_pxl)
+        L_wall_list.append(L_wall)
+    else:
+        cv2.imshow('laser beam', frame_grey)
+        L_pxl_list.append([])
+        L_wall_list.append([])
 
-    # Step 4: with R,T,Ainv known we can map any point in the image 
-    #         to the corresponding point in the plane of the chessboard in world coords.
-    L_w = ccu.uv2XYZ(L_pxl, Ainv, R, T)
-
-    # Step 5: lastly recover the rotation angles from the servos and compute the directional vector:
-    theta_deg = 90 + float(row[1])
-    phi_deg = 90 - float(row[2])
-    sin_phi = np.sin(np.deg2rad(phi_deg))
-    cos_phi = np.cos(np.deg2rad(phi_deg))
-    sin_tht = np.sin(np.deg2rad(theta_deg))
-    cos_tht = np.cos(np.deg2rad(theta_deg))
-
-    # unitary directional vector in Laser coords:
-    ul = np.array([sin_phi*cos_tht, sin_phi*sin_tht, cos_phi])
-
-    # store for further processing:
-    Ul_list.append(ul)
-    L_pxl_list.append(L_pxl)
-    L_w_list.append(L_w)
-    cam2w_info_list.append((R,T,mtx_new,Ainv))
-
-    print(row)    
-    cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255),10,1)
-    
-    #cv2.drawChessboardCorners(frame_grey,ptrn_size,P_pxl_list[0],True)
-    cv2.imshow('ssss', frame_grey)
-
+    print(f'Processed : {img_file}')
     cv2.waitKey(0)
 
-    print(f'DDDDD: {row}')
+L_pxl_list = [L_pxl for L_pxl,rl in zip(L_pxl_list,ret_list) if rl==True]
+L_wall_list = [L_wall for L_wall,rl in zip(L_wall_list,ret_list) if rl==True]
+
+
+'''
+  ---------------------------------------------------------------------------------
+  Step 3: Estimate R_lsr_wall,T_lsr_wall using optimization.
+  ---------------------------------------------------------------------------------
+'''
+
+
+
+
+
 
 
 # --------------------------------------------------------------------------------
