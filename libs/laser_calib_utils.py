@@ -31,7 +31,7 @@ def get_laser_pixel_coords_from_black_squares(frm, thr):
     L_pxl = np.array([[x_pxl],[y_pxl]])
 
     cv2.imshow('contours', mask_contour)
-    cv2.waitKey(0)
+    #cv2.waitKey(0)
 
     return ret, L_pxl
 
