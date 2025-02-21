@@ -1,69 +1,19 @@
 import cv2
 import multiprocessing
 import numpy as np
-from libs.cam_calib_utils import detect_chess_board_points
+import libs.cam_calib_utils as ccu
 
 from gpiozero import Servo
 from gpiozero.pins.pigpio import PiGPIOFactory
 from libs import myservo as ms
 import time
 
-def camera_process(cal_path, running_flg, degrees_1, degrees_2, save_flg, move_idx):
-    ptrn_size = ((6,4))
-    cam = cv2.VideoCapture(0)  
-    cam.set(cv2.CAP_PROP_BUFFERSIZE,1)
-    axx=cam.get(cv2.CAP_PROP_BUFFERSIZE)       
-    
-    cal_servos_file = cal_path+'/servos.txt'
-    cnt = 0
-    idx = 0
-    while running_flg.value==True:
-        valid, frame = cam.read()
-        
-        if valid==True:
-            # try to detect the chessboard and draw
-            ret, P_chs, P_pxl = detect_chess_board_points(frame, ptrn_size)
-            if ret==True:
-                frame_to_save = frame.copy()
-                cv2.drawChessboardCorners(frame,ptrn_size,P_pxl,ret)
-                for p_idx, p in enumerate(P_pxl):
-                    p = [int(a) for a in p]
-                    cv2.putText(frame,str(p_idx),p,cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
-            cv2.imshow('Calibration',frame)
-            cv2.waitKey(1)
-        
-        # act on pressed key
-        if save_flg.value == True:
-            if ret==True and valid==True:
-                # save image:
-                filename = cal_path+'/'+str(move_idx.value)+'/'+str(idx)+'_chess.png'
-                cv2.imwrite(filename, frame)
 
-                filename = cal_path+'/'+str(move_idx.value)+'/'+str(idx)+'_img.png'
-                cv2.imwrite(filename, frame_to_save)
-
-                # write file:
-                with open(cal_servos_file, "a") as f:
-                    tof = f'{idx:d}\t{move_idx.value:d}\t{degrees_1.value:.3f}\t{degrees_2.value:.3f}\t{degrees_1.value*ms.ANGLE2VAL:.3f}\t{degrees_2.value*ms.ANGLE2VAL:.3f}\n'
-                    f.write(tof)
-                    print(tof)
-
-                idx+=1
-                print(f'from camera: images saved {idx}')
-            else:
-                print('Chess not in image, NOT SAVED')
-            
-            save_flg.value = False
-        
-        cnt += 1
-        if cnt%30000 == 0:
-            print(f'from camera {valid}')
-    
-    cam.release()
-    cv2.destroyAllWindows()
-
-
-def laser_process(cal_path, running_flg, degrees_1, degrees_2):
+'''
+This function only sets the servos to the positions given in theta-phi lists that are the angles of the given pointsx,y 
+in pixel coords that are projected into the wall plane, that are later translated into the laser coords.
+'''
+def laser_process(theta_list, phi_list, running_flg):
     # init servo:
     factory = PiGPIOFactory()
     servo1 = Servo(17, min_pulse_width=0.5/1000, max_pulse_width=2.5/1000, pin_factory=factory)
@@ -74,72 +24,93 @@ def laser_process(cal_path, running_flg, degrees_1, degrees_2):
     # init laser:
     laser = Servo(27, min_pulse_width=0.5/1000, max_pulse_width=2.5/1000, pin_factory=factory)
     laser.max()
-
-
-    prev_degrees_1 = 0.
-    prev_degrees_2 = 0.
     
+    # loop over all movements
     while running_flg.value==True:
-        
-        if prev_degrees_1 !=degrees_1.value or prev_degrees_2 !=degrees_2.value:
-            
-            # get key to move up down or sides:
-            degrees_1.value = ms.manual_move_servo(servo1, prev_degrees_1, degrees_1.value)
-            degrees_2.value = ms.manual_move_servo(servo2, prev_degrees_2, degrees_2.value)
-            
-            prev_degrees_1 = degrees_1.value
-            prev_degrees_2 = degrees_2.value
-            print(f'from lsr proc: 1-2 values:{servo1.value:.3f}  , {servo2.value:.3f}, angles:{ms.VAL2ANGLE*servo1.value:.2f}  , {ms.VAL2ANGLE*servo2.value:.2f}')
+        for tht, phi in zip(theta_list,phi_list):
+            servo1.value = ms.manual_move_servo(servo1, tht, tht, False)
+            servo2.value = ms.manual_move_servo(servo2, phi, phi, False)
+            time.sleep(1)
+
+'''
+This function shifts the info contained in Px, Py and adds x,y pixel coords as last element.
+Notice that the first element of the array is lost every time this func is run.
+'''
+def add_point_in_tht_phi_lists(event,x,y,flags,param):
+    global Pxy_pxl_list
+    if event == cv2.EVENT_LBUTTONDBLCLK:
+        # shift
+        Pxy_pxl_list[1:] = Pxy_pxl_list[:-1]
+        # add:
+        Pxy_pxl_list[0] = (x,y)
 
 
+
+Pxy_pxl_list = [(0,0),(0,0),(0,0),(0,0)]
+
+
+cal_file_pref = './out/cal1'
+M_file_pref = './out/'
 if __name__=='__main__':
-
-    cal_path = './cal_laser'
-
+    # load camera/laser translational matrices:
+    
+    _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pref)
+    M_cam_wall = np.load(M_file_pref + 'final__M_cam_wall.npy')
+    M_lsr_wall = np.load(M_file_pref + 'final__M_lsr_wall.npy')
+    M_world_wall = np.load(M_file_pref + 'final__M_world_wall.npy')
+    Ainv = ccu.inv_svd(mtx_new)
+    
     # define variables to communicate the processes:
     running_flg = multiprocessing.Value('b')
-    save_flg = multiprocessing.Value('b')
-    degrees_1 = multiprocessing.Value('f')
-    degrees_2 = multiprocessing.Value('f')
-    move_idx = multiprocessing.Value('i')
+    theta_list = multiprocessing.Array('f',len(Pxy_pxl_list))
+    phi_list = multiprocessing.Array('f',len(Pxy_pxl_list))
+
     # init:
     running_flg.value = True
-    save_flg.value = False
-    degrees_1.value = 0
-    degrees_2.value = 0
-    move_idx.value=0
-
-    # launch process,
-    p_cam = multiprocessing.Process(target=camera_process,args=(cal_path,running_flg, degrees_1, degrees_2, save_flg, move_idx),name='cam_proc')
-    p_cam.start()
     
-    p_lsr = multiprocessing.Process(target=laser_process,args=(cal_path,running_flg, degrees_1, degrees_2),name='lsr_proc')
+    # start laser process:
+    p_lsr = multiprocessing.Process(target=laser_process,args=(theta_list, phi_list, running_flg),name='lsr_proc')
     p_lsr.start()
     
+
+    # start camera:s
+    cam = cv2.VideoCapture(0)  
+    cam.set(cv2.CAP_PROP_BUFFERSIZE,1)
     
-    # move laser to new positions
-    moves = [(10,20),(0,20),(-10,20), (10,10),(0,10),(-10,10), (10,0), (0,0), (-10,0)]
-    for i in range(10):
+    cv2.namedWindow('Sopita-mouse')
+    cv2.setMouseCallback('Sopita-mouse',add_point_in_tht_phi_lists)
+    while running_flg.value==True:
+        valid, frame = cam.read()
+
+        #print(Pxy_pxl_list)
+
+
+        # convert point to theta and phi:
+        P_pxl = np.stack(Pxy_pxl_list).reshape((-1,2)).T
+        P_wall = ccu.uv2XYZ(P_pxl, Ainv, R_cam_wall=M_cam_wall[:3,:3], T_cam_wall=M_cam_wall[:3,3,None])
+        P1_wall = np.row_stack((P_wall, np.ones((1,P_wall.shape[1]))))
+        P1_lsr = M_lsr_wall.dot(P1_wall)
         
-        for idx, mv_deg in enumerate(moves):
-            
-            move_idx.value = idx
+        for xy_idx, Pxy_lsr_i in enumerate(P1_lsr):
+            theta_list[xy_idx] = 0
+            phi_list[xy_idx] = 0
+    
+        if valid==True:
+            cv2.imshow('Sopita-mouse',frame)
+        
+        # act on pressed key
+        key_pressed = cv2.waitKey(1)
+        if key_pressed == ord('q'):
+            running_flg.value = False
+            break
 
-            degrees_1.value = 0
-            degrees_2.value = 0
-
-            time.sleep(1)
-            degrees_1.value = mv_deg[0]
-            degrees_2.value = mv_deg[1]
-            time.sleep(1)
-            save_flg.value = True
-            time.sleep(1)
-
-    running_flg.value = False
-
-    # join all process:
-    p_cam.join()
+    print('closing everything / releasing resources')
     p_lsr.join()
+    cam.release()
+    cv2.destroyAllWindows()
+
+    
+    
     
     
     

@@ -13,39 +13,44 @@ def sanitate_max_min_angles(prev_angle, new_angle):
         return prev_angle
     return new_angle
 
-def manual_move_servo(servo:Servo, prev_angle: float, new_angle:float):
+def manual_move_servo(servo:Servo, prev_angle: float, new_angle:float, verbose=False):
     new_angle = sanitate_max_min_angles(prev_angle, new_angle)
     servo.value = new_angle*ANGLE2VAL
-    print(f'moved to values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
+    if verbose:
+        print(f'moved to values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
     return new_angle
 
 
-def manual_left_right_angle(ch:str, servo:Servo, prev_angle: float,  step_angle:float):
+def manual_left_right_angle(ch:str, servo:Servo, prev_angle: float,  step_angle:float, verbose=False):
     if ch==81: # use left arrrow
         new_angle = prev_angle + step_angle
         new_angle = sanitate_max_min_angles(prev_angle, new_angle)
         servo.value = new_angle*ANGLE2VAL
-        print(f'left prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
+        if verbose:
+            print(f'left prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
     elif ch==83: # use right arrow
         new_angle = prev_angle - step_angle*ANGLE2VAL
         new_angle = sanitate_max_min_angles(prev_angle, new_angle)
         servo.value = new_angle*ANGLE2VAL
-        print(f'right prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
+        if verbose:
+            print(f'right prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
     else:
         new_angle = prev_angle
     return new_angle
 
-def manual_up_down_angle(ch:str, servo:Servo, prev_angle:float, step_angle:float):
+def manual_up_down_angle(ch:str, servo:Servo, prev_angle:float, step_angle:float, verbose=False):
     if ch==82: # use up arrrow
         new_angle = prev_angle + step_angle
         new_angle = sanitate_max_min_angles(prev_angle, new_angle)
         servo.value = new_angle*ANGLE2VAL
-        print(f'up prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
+        if verbose:
+            print(f'up prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
     elif ch==84: # use down arrow
         new_angle = prev_angle - step_angle*ANGLE2VAL
         new_angle = sanitate_max_min_angles(prev_angle, new_angle)
         servo.value = new_angle*ANGLE2VAL
-        print(f'down prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
+        if verbose:
+            print(f'down prev values: {prev_angle*ANGLE2VAL:.3f}, new: {new_angle*ANGLE2VAL:.3f}, angles prev: {prev_angle:.3f}, new: {new_angle:.3f}')
     else:
         new_angle = prev_angle
     return new_angle
