@@ -6,6 +6,7 @@ import libs.cam_calib_utils as ccu
 from gpiozero import Servo
 from gpiozero.pins.pigpio import PiGPIOFactory
 from libs import myservo as ms
+from libs import servo_mechanics as sm
 import time
 
 
@@ -90,11 +91,18 @@ if __name__=='__main__':
         P_wall = ccu.uv2XYZ(P_pxl, Ainv, R_cam_wall=M_cam_wall[:3,:3], T_cam_wall=M_cam_wall[:3,3,None])
         P1_wall = np.row_stack((P_wall, np.ones((1,P_wall.shape[1]))))
         P1_lsr = M_lsr_wall.dot(P1_wall)
-        
-        for xy_idx, Pxy_lsr_i in enumerate(P1_lsr):
-            theta_list[xy_idx] = 0
-            phi_list[xy_idx] = 0
-    
+        for xy_idx, Pxyz1_lsr_i in enumerate(P1_lsr):
+            Pxy_L = Pxyz1_lsr_i[:2,:]
+            _, theta_deg = sm.get_theta(Pxy_L, Lx=0.7)
+            phi_deg = sm.get_phi(Pxyz1_lsr_i, Lx=0.7, theta_deg=theta_deg) 
+            
+            theta_list[xy_idx] = theta_deg
+            phi_list[xy_idx] = phi_deg
+
+        print(theta_list)
+        #print(theta_list)
+
+
         if valid==True:
             cv2.imshow('Sopita-mouse',frame)
         

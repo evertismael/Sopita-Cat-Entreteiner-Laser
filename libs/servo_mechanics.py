@@ -109,3 +109,35 @@ def make_figure(x_lim, y_lim, z_lim):
     ax.set_zlim(z_lim)
     plt.gca().set_aspect('equal', adjustable='box')
     return ax
+
+def get_theta(Pxy_L, Lx):
+    QP = np.sqrt(np.sum(Pxy_L**2) - np.abs(Lx)**2)
+    Px = Pxy_L[0]
+    Py = Pxy_L[1]
+
+    a = Px**2 - QP**2
+    b = -2*Px*Py
+    c = Py**2 - QP**2
+    
+    d = b**2-4*a*c # discriminant
+    
+    if d < 0:
+        raise('discriminant negative')
+    elif d == 0:
+        x1 = (-b+np.sqrt(b**2-4*a*c))/2*a
+        x2 = x1
+    else:
+        x1 = (-b+np.sqrt((b**2)-(4*(a*c))))/(2*a)
+        x2 = (-b-np.sqrt((b**2)-(4*(a*c))))/(2*a)
+
+    theta1 = np.rad2deg(np.arctan(x1))
+    theta2 = np.rad2deg(np.arctan(x2))
+    return theta1, theta2
+
+def get_phi(Pxyz1_L, Lx, theta_deg):
+    _, M_L_C2, _ = move_set_up(theta_deg, 0, M_W_L=np.eye(4), Lx=Lx)
+    M_C2_L = inv_svd(M_L_C2)
+
+    Pxyz1_C2 = M_C2_L.dot(Pxyz1_L)
+    phi = np.rad2deg(np.arctan2(-Pxyz1_C2[0], Pxyz1_C2[1]))
+    return phi[0]
