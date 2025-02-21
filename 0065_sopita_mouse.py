@@ -23,15 +23,18 @@ def laser_process(theta_list, phi_list, running_flg):
     servo2.mid()
 
     # init laser:
-    laser = Servo(27, min_pulse_width=0.5/1000, max_pulse_width=2.5/1000, pin_factory=factory)
-    laser.max()
+    laser = Servo(27, min_pulse_width=0./1000, max_pulse_width=2.5/1000, pin_factory=factory)
+    laser.min()
     
     # loop over all movements
     while running_flg.value==True:
         for tht, phi in zip(theta_list,phi_list):
-            servo1.value = ms.manual_move_servo(servo1, tht, tht, False)
-            servo2.value = ms.manual_move_servo(servo2, phi, phi, False)
-            time.sleep(1)
+            ms.manual_move_servo(servo1, tht, tht, False)
+            ms.manual_move_servo(servo2, phi, phi, False)
+            time.sleep(0.03)
+            laser.max()
+        laser.min()
+        time.sleep(0.07)
 
 '''
 This function shifts the info contained in Px, Py and adds x,y pixel coords as last element.
@@ -41,13 +44,19 @@ def add_point_in_tht_phi_lists(event,x,y,flags,param):
     global Pxy_pxl_list
     if event == cv2.EVENT_LBUTTONDBLCLK:
         # shift
-        Pxy_pxl_list[1:] = Pxy_pxl_list[:-1]
+        Pxy_pxl_list[:-1] = Pxy_pxl_list[1:]
         # add:
-        Pxy_pxl_list[0] = (x,y)
+        Pxy_pxl_list[-1] = (x,y)
+    elif event== cv2.EVENT_MOUSEMOVE:
+        # shift
+        Pxy_pxl_list[:-1] = Pxy_pxl_list[1:]
+        # add:
+        Pxy_pxl_list[-1] = (x,y)
 
 
-
-Pxy_pxl_list = [(0,0),(0,0),(0,0),(0,0)]
+Pxy_pxl_list =[]
+for i in range(130) :
+    Pxy_pxl_list.append((300,200))
 
 
 cal_file_pref = './out/cal1'
@@ -83,26 +92,28 @@ if __name__=='__main__':
     while running_flg.value==True:
         valid, frame = cam.read()
 
-        #print(Pxy_pxl_list)
-
-
         # convert point to theta and phi:
         P_pxl = np.stack(Pxy_pxl_list).reshape((-1,2)).T
         P_wall = ccu.uv2XYZ(P_pxl, Ainv, R_cam_wall=M_cam_wall[:3,:3], T_cam_wall=M_cam_wall[:3,3,None])
         P1_wall = np.row_stack((P_wall, np.ones((1,P_wall.shape[1]))))
         P1_lsr = M_lsr_wall.dot(P1_wall)
-        for xy_idx, Pxyz1_lsr_i in enumerate(P1_lsr):
-            Pxy_L = Pxyz1_lsr_i[:2,:]
+
+        tmp =[]
+        for xy_idx in range(P1_lsr.shape[1]):
+            Pxy_L = P1_lsr[:2,xy_idx,None]
             _, theta_deg = sm.get_theta(Pxy_L, Lx=0.7)
-            phi_deg = sm.get_phi(Pxyz1_lsr_i, Lx=0.7, theta_deg=theta_deg) 
-            
-            theta_list[xy_idx] = theta_deg
+            theta_deg = theta_deg[0]
+            phi_deg = sm.get_phi(P1_lsr[:,xy_idx,None], Lx=0.7, theta_deg=theta_deg) 
+
+            tmp.append((theta_deg, phi_deg)) 
+            theta_list[xy_idx] = theta_deg 
             phi_list[xy_idx] = phi_deg
 
-        print(theta_list)
-        #print(theta_list)
+        # print(tmp)
 
-
+        for xy_idx in range(P_pxl.shape[1]):
+            cv2.putText(frame,str(xy_idx),(int(P_pxl[0,xy_idx]),int(P_pxl[1,xy_idx])),cv2.FONT_HERSHEY_COMPLEX,.4,(255,0,0),1,1)
+           # cv2.putText(frame,str(p_idx),  p,cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
         if valid==True:
             cv2.imshow('Sopita-mouse',frame)
         
