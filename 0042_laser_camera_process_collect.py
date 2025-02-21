@@ -44,7 +44,7 @@ def camera_process(cal_path, running_flg, degrees_1, degrees_2, save_flg, move_i
 
                 # write file:
                 with open(cal_servos_file, "a") as f:
-                    tof = f'{idx:d}\t{degrees_1.value:.3f}\t{degrees_2.value:.3f}\t{degrees_1.value*ms.ANGLE2VAL:.3f}\t{degrees_2.value*ms.ANGLE2VAL:.3f}\n'
+                    tof = f'{idx:d}\t{move_idx:d}\t{degrees_1.value:.3f}\t{degrees_2.value:.3f}\t{degrees_1.value*ms.ANGLE2VAL:.3f}\t{degrees_2.value*ms.ANGLE2VAL:.3f}\n'
                     f.write(tof)
                     print(tof)
 
