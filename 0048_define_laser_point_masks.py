@@ -36,7 +36,7 @@ while(1):
     frame_masked = cv2.bitwise_and(frame_copy,frame_copy,mask=mask)
 
     frame = frame_copy.copy()
-    cv2.rectangle(frame,p0,pf,(255,0,0),2)
+    cv2.rectangle(frame,p0,pf,(255,0,0),1)
     
     cv2.imshow('image', frame)
     cv2.imshow('image_masked', frame_masked)

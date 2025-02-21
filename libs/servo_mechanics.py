@@ -54,6 +54,7 @@ def find_laser_base_R_T_error(ang_and_T, P1_W, M_L_C3_list, T_W_L_0):
 
     P1_L_hat = M_L_W_hat.dot(P1_W)
 
+    w = 1*np.array([[1, 1, 1]]).T
 
     # Each point
     P1_L = np.zeros_like(P1_L_hat)
@@ -63,7 +64,7 @@ def find_laser_base_R_T_error(ang_and_T, P1_W, M_L_C3_list, T_W_L_0):
         P1_L[:,idx,None] = M_L_C3.dot(np.array([[0,rho_i,0,1]]).T)
     
     T_W_L_diff = (M_W_L_hat[:3,3,None] - T_W_L_0)**2
-    error = np.mean(np.sum((P1_L - P1_L_hat)**2,axis=0,keepdims=True), axis=1, keepdims=True) + 1*T_W_L_diff[0,0] + 1*T_W_L_diff[1,0] + 2*T_W_L_diff[2,0]
+    error = np.mean(np.sum((P1_L - P1_L_hat)**2,axis=0,keepdims=True), axis=1, keepdims=True) + np.sum(w*T_W_L_diff)
     return error
 
 def estimate_R_l_w_and_T_l_w(P1_W, M_L_C3_list, T_W_L_0, options={}):
@@ -75,7 +76,6 @@ def estimate_R_l_w_and_T_l_w(P1_W, M_L_C3_list, T_W_L_0, options={}):
 
     # init value:
     ang_and_T0 = np.random.uniform(-80,80,6)
-    ang_and_T0[3:] = np.array([T_W_L_0[0,0],-T_W_L_0[2,0],-T_W_L_0[1,0]])
 
     res = minimize(find_laser_base_R_T_error,ang_and_T0,args=(P1_W, M_L_C3_list, T_W_L_0),method='nelder-mead', tol=1e-10, 
                 bounds=bounds,options=options)

@@ -35,7 +35,8 @@ _, dist, img_size, mtx_new, _ = ccu.load_camera_calibration_matrices(cal_file_pr
   Assumption: All images contain the chessboard in the same location.
   Hence we use them to compute R_cam_wall and T_cam_wall
 '''
-chess_img_files = [folder_path + row.split('\t')[0] + '_img.png' for row in srvs_data]
+chess_img_files = [folder_path + row.split('\t')[1] + '/' + row.split('\t')[0] + '_img.png' for row in srvs_data]
+
 ptrn_size = ((6,4))
 ret_list, P_wall_list, P_pxl_list,img_size = ccu.find_chessboard_on_image_files(chess_img_files, ptrn_size,False)
 # select the pairs that are valid:
@@ -82,27 +83,43 @@ print(f'----------------------------------------------------------')
   coords (L_wall). This L_wall is computed using R_cam_wall, T_cam_wall and exploiting
   the fact that all points lay over the same plane z_wall = 0.
 '''
-chess_img_files = [folder_path + row.split('\t')[0] + '_img.png' for row in srvs_data]
+chess_img_files = [folder_path + row.split('\t')[1] + '/' + row.split('\t')[0] + '_img.png' for row in srvs_data]
+block_idx_list = [int(row.split('\t')[1]) for row in srvs_data]
+
+# read and parsing file with block mask info:
+with open(folder_path+'laser_point_masks.txt') as f:
+    blck_mask_info_list = f.read()
+blck_mask_info_list = blck_mask_info_list.split('\n')[:-1]
+blck_mask_info_list = [(int(row.split('\t')[0]), int(row.split('\t')[1]), int(row.split('\t')[2]), int(row.split('\t')[3]),int(row.split('\t')[4])) for row in blck_mask_info_list]
+
 
 L_pxl_list = []
 L_wall_list = []
 ret_list = []
-for img_file, P_pxl in zip(chess_img_files,P_pxl_list):
-    # A. load image, convert to grey, draw pattern
+for img_file, P_pxl,blk_idx in zip(chess_img_files,P_pxl_list, block_idx_list):
+    # A. load image, convert to grey, draw block
     frame = cv2.imread(img_file)
     frame_grey = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    cv2.drawChessboardCorners(frame, ptrn_size, P_pxl,True)
-    cv2.putText(frame,'0', P_pxl[0,:].astype(int),cv2.FONT_HERSHEY_COMPLEX,.4,(0,0,0),1,1)
+
+    mask_info = blck_mask_info_list[blk_idx]
+    _, mouseX, mouseY, rw, rh = mask_info
+    p0 = (mouseX - rw//2, mouseY- rh//2)
+    pf = (mouseX + rw//2, mouseY+ rh//2) 
+    cv2.rectangle(frame,p0,pf,0,1)
     cv2.imshow('', frame)
     #cv2.waitKey(0)
 
     # B. mask only black squares
-    fr_sqr_black, roi_mask = chu.get_chess_black_squares(frame_grey, P_pxl.T, ptrn_size)
-    cv2.imshow('black', fr_sqr_black)
+    mask = np.zeros(frame.shape[:2], dtype="uint8")
+    cv2.rectangle(mask,p0,pf,255,-1)
+    mask = cv2.erode(mask,np.ones((4,4),dtype=np.uint8), iterations=3)
+    frame_masked = cv2.bitwise_and(frame_grey,frame_grey,mask=mask)
+
+    cv2.imshow('masked', frame_masked)
     #cv2.waitKey(0)
 
     # C. get Laser beam in pixel coords
-    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(fr_sqr_black,thr = 130)
+    ret, L_pxl = lcu.get_laser_pixel_coords_from_black_squares(frame_masked,thr = 130)
     ret_list.append(ret)
     if ret==True: # some beams are very small.
         cv2.circle(frame_grey,L_pxl.astype(int)[:,0],10,(255,0,0),3,1)
@@ -141,10 +158,10 @@ print(f'----------------------------------------------------------')
   Step 3: Estimate R_lsr_wall,T_lsr_wall using optimization.
   ---------------------------------------------------------------------------------
 '''
-Lx = 0.8
+Lx = 0.7
 L_wall = np.stack(L_wall_list).reshape(-1,3).T
 L1_wall = np.row_stack((L_wall,np.ones((1,L_wall.shape[1]))))
-theta_phi_deg_list = [np.array([float(row.split('\t')[1]), float(row.split('\t')[2])]) for row in srvs_data]
+theta_phi_deg_list = [np.array([float(row.split('\t')[2]), float(row.split('\t')[3])]) for row in srvs_data]
 
 M_lsr_wall_list = []
 for idx, theta_phi_deg in enumerate(theta_phi_deg_list):
@@ -153,7 +170,8 @@ for idx, theta_phi_deg in enumerate(theta_phi_deg_list):
     _, _, M_lsr_wall = sm.move_set_up(theta_deg, phi_deg, M_W_L=np.eye(4),Lx=Lx)
     M_lsr_wall_list.append(M_lsr_wall)
 
-T_wall_lsr_0 = M_wall_cam[:3,3,None]
+cam_lsr_delta_wall = np.array([[0,-1,-1.5]]).T
+T_wall_lsr_0 = M_wall_cam[:3,3,None] + cam_lsr_delta_wall # notice this is not T_lsr_wall_0
 angles_hat, R_lsr_wall_hat, T_lsr_wall_hat = sm.estimate_R_l_w_and_T_l_w(L1_wall, M_lsr_wall_list, T_wall_lsr_0, options={'maxiter':1e4, 'disp':True})
 
 M_lsr_wall = np.eye(4)
@@ -177,7 +195,7 @@ M_wall_world[:3,:3] = np.array([[0,-1,0],[0,0,-1],[1,0,0]])
 M_wall_world[:3,3,None] = np.array([[0,0,-10]]).T
 M_world_wall = ccu.inv_svd(M_wall_world)
 
-ax = sm.make_figure([-50,10], [-20,10], [-20,10])
+ax = sm.make_figure([-25,10], [-20,10], [-20,10])
 sm.plot_coord_sys(np.eye(4),10,'world', ax, 0.2)
 sm.plot_coord_sys(M_world_wall,4,'wall', ax, 0.6)
 sm.plot_coord_sys(M_world_wall.dot(M_wall_cam),10,'cam', ax, 1)
@@ -185,4 +203,10 @@ sm.plot_coord_sys(M_world_wall.dot(M_wall_lsr),10,'lsr', ax, 1)
 
 plt.show()
 
+
+# save matrices:
+path = './out/final_'
+np.save(path + '_M_cam_wall.npy', M_cam_wall)
+np.save(path + '_M_lsr_wall.npy', M_lsr_wall)
+np.save(path + '_M_world_wall.npy', M_world_wall)
 a=2
