@@ -44,7 +44,7 @@ def camera_process(cal_path, running_flg, degrees_1, degrees_2, save_flg, move_i
 
                 # write file:
                 with open(cal_servos_file, "a") as f:
-                    tof = f'{idx:d}\t{move_idx:d}\t{degrees_1.value:.3f}\t{degrees_2.value:.3f}\t{degrees_1.value*ms.ANGLE2VAL:.3f}\t{degrees_2.value*ms.ANGLE2VAL:.3f}\n'
+                    tof = f'{idx:d}\t{move_idx.value:d}\t{degrees_1.value:.3f}\t{degrees_2.value:.3f}\t{degrees_1.value*ms.ANGLE2VAL:.3f}\t{degrees_2.value*ms.ANGLE2VAL:.3f}\n'
                     f.write(tof)
                     print(tof)
 
@@ -118,7 +118,7 @@ if __name__=='__main__':
     
     
     # move laser to new positions
-    moves = [(10,20),(0,20),(-10,20), (10,10),(0,10),(-10,10), (-10,0), (0,0), (10,0)]
+    moves = [(10,20),(0,20),(-10,20), (10,10),(0,10),(-10,10), (10,0), (0,0), (-10,0)]
     for i in range(10):
         
         for idx, mv_deg in enumerate(moves):
